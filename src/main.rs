@@ -71,12 +71,20 @@ impl fmt::Display for LexerError {
     }
 }
 
-impl std::error::Error for LexerError {} // Implement the standard Error trait
+impl std::error::Error for LexerError {}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    /*
+    TODO (from book): eventual opts are:
 
-    // For now: program --lex <filepath>
+    --lex      Directs it to run the lexer, but stop before parsing
+    --parse    Directs it to run the lexer and parser, but stop before assembly generation
+    --codegen   Directs it to perform lexing, parsing, and assembly generation, but stop before code emission
+    */
+
+    // For now:, we've only implemented lexing so,
+    // ./program --lex <filepath>
     if args.len() != 3 || args[1] != "--lex" {
         eprintln!("Usage: {} --lex <filepath>", args[0]);
         process::exit(1);
@@ -115,18 +123,18 @@ fn read_file(filepath: &str) -> io::Result<String> {
 }
 
 /*
-    Produces a list of tokens from the source code, provided as input
-    Rough outline from book (page 9):
+   Produces a list of tokens from the source code, provided as input
+   Rough outline from book (page 9):
 
-    while input isn't empty:
-        if input starts with whitespace:
-            trim whitespace from start of input
-        else:
-            find longest match at start of input for any regex in Table 1-1
-            if no match is found, raise an error
-            convert matching substring into a token
-            remove matching substring from start of input
- */
+   while input isn't empty:
+       if input starts with whitespace:
+           trim whitespace from start of input
+       else:
+           find longest match at start of input for any regex in Table 1-1
+           if no match is found, raise an error
+           convert matching substring into a token
+           remove matching substring from start of input
+*/
 fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
     // collect tokens
     let mut tokens = Vec::new();
@@ -209,7 +217,7 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
                                     return Err(LexerError {
                                         message: "Unterminated multi-line comment".to_string(),
                                         line: comment_start_line, // Report error at comment start
-                                        col: comment_start_col,
+                                        col: comment_start_col,   // As above
                                     });
                                 }
                             }
