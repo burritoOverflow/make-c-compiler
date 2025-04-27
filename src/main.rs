@@ -23,8 +23,8 @@ enum TokenType {
 struct Token {
     token_type: TokenType,
     lexeme: String, // The actual string of characters that make up the token
-    line: usize,    // Line number in the source code
-    col: usize,     // Column number in the source code
+    line: usize,    // Line number in the source code, advanced with each newline
+    col: usize,     // Column number in the source code, advanced with each character
 }
 
 impl Token {
@@ -38,7 +38,22 @@ impl Token {
     }
 }
 
-// Define a custom error type for the lexer
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Special case for EOF which has no lexeme
+        if self.token_type == TokenType::EOF {
+            write!(f, "EOF at {}:{}", self.line, self.col)
+        } else {
+            write!(
+                f,
+                "{:?} \"{}\" at {}:{}",
+                self.token_type, self.lexeme, self.line, self.col
+            )
+        }
+    }
+}
+
+// Description of the error, along with the line and column where it occurred
 #[derive(Debug)]
 struct LexerError {
     message: String,
@@ -77,11 +92,18 @@ fn main() {
     };
 
     let tokens: Result<Vec<Token>, LexerError> = lexer(&source_code);
-    if let Ok(token) = tokens {
-        println!("{:?}", token);
-    } else if let Err(e) = tokens {
-        eprintln!("Lexer error: {}", e);
-        process::exit(1);
+    match tokens {
+        Ok(tokens) => {
+            // Display the results of the lexing
+            for token in tokens {
+                println!("{}", token);
+            }
+        }
+        // Failures are present when the lexer encounters an error (invalid token in input)
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1);
+        }
     }
 }
 
@@ -278,7 +300,10 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
                         col += 1;
 
                         return Err(LexerError {
-                            message: format!("Invalid numeric literal or identifier starting with digit: '{}'", lexeme),
+                            message: format!(
+                                "Invalid numeric literal or identifier starting with digit: '{}'",
+                                lexeme
+                            ),
                             line,
                             col, // Report the location of the error as the start of this invalid identifier
                         });
