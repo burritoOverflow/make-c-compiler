@@ -19,7 +19,7 @@ enum TokenType {
     EOF,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Token {
     token_type: TokenType,
     lexeme: String, // The actual string of characters that make up the token
@@ -115,7 +115,8 @@ fn read_file(filepath: &str) -> io::Result<String> {
 }
 
 /*
-Rough outline from book (page 9):
+    Produces a list of tokens from the source code, provided as input
+    Rough outline from book (page 9):
 
     while input isn't empty:
         if input starts with whitespace:
@@ -151,7 +152,8 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
                 }
             }
             '/' => {
-                let start_line = line; // Store starting position for potential errors
+                // Store starting position for reporting potential errors
+                let start_line = line;
                 let start_col = col;
                 chars.next(); // Consume the first '/'
                 col += 1;
@@ -328,4 +330,130 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
 
     tokens.push(Token::new(TokenType::EOF, String::new(), line, col));
     Ok(tokens)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /*
+       Basic test cases for the lexer.
+       Warning: keep in mind all the tests assert equality on the line and column numbers of the tokens.
+    */
+    #[test]
+    fn test_lex_valid_basic() {
+        let filepath = Path::new("./inputs/1.c");
+        let source_code = match read_file(filepath.to_str().unwrap()) {
+            Ok(content) => content,
+            Err(e) => {
+                panic!("Failed to read input file {:?}: {}", filepath, e);
+            }
+        };
+
+        let result = lexer(&source_code);
+        assert!(
+            result.is_ok(),
+            "Lexer failed on input file {:?}: {:?}",
+            filepath,
+            result.err()
+        );
+
+        let actual_tokens = result.unwrap();
+        assert!(!actual_tokens.is_empty());
+
+        let expected_tokens = vec![
+            Token::new(TokenType::KeywordInt, "int".to_string(), 1, 1),
+            Token::new(TokenType::Identifier, "main".to_string(), 1, 5),
+            Token::new(TokenType::OpenParen, "(".to_string(), 1, 9),
+            Token::new(TokenType::KeywordVoid, "void".to_string(), 1, 10),
+            Token::new(TokenType::CloseParen, ")".to_string(), 1, 14),
+            Token::new(TokenType::OpenBrace, "{".to_string(), 1, 16),
+            Token::new(TokenType::KeywordReturn, "return".to_string(), 2, 5),
+            Token::new(TokenType::Constant, "2".to_string(), 2, 12),
+            Token::new(TokenType::Semicolon, ";".to_string(), 2, 13),
+            Token::new(TokenType::CloseBrace, "}".to_string(), 3, 1),
+            Token::new(TokenType::EOF, String::new(), 3, 2),
+        ];
+
+        assert_eq!(actual_tokens, expected_tokens, "Token sequence mismatch");
+    }
+
+    #[test]
+    fn test_single_line_comment() {
+        let filepath = Path::new("./inputs/singleLineComment.c");
+        let source_code = match read_file(filepath.to_str().unwrap()) {
+            Ok(content) => content,
+            Err(e) => {
+                panic!("Failed to read input file {:?}: {}", filepath, e);
+            }
+        };
+
+        let result = lexer(&source_code);
+        assert!(
+            result.is_ok(),
+            "Lexer failed on input file {:?}: {:?}",
+            filepath,
+            result.err()
+        );
+
+        let actual_tokens = result.unwrap();
+        assert!(!actual_tokens.is_empty());
+
+        let expected_tokens = vec![
+            Token::new(TokenType::KeywordInt, "int".to_string(), 1, 1),
+            Token::new(TokenType::Identifier, "main".to_string(), 1, 5),
+            Token::new(TokenType::OpenParen, "(".to_string(), 1, 9),
+            Token::new(TokenType::CloseParen, ")".to_string(), 1, 10),
+            Token::new(TokenType::OpenBrace, "{".to_string(), 1, 12),
+            Token::new(TokenType::KeywordInt, "int".to_string(), 3, 5),
+            Token::new(TokenType::Identifier, "a".to_string(), 3, 9),
+            Token::new(TokenType::Semicolon, ";".to_string(), 3, 10),
+            Token::new(TokenType::KeywordReturn, "return".to_string(), 4, 5),
+            Token::new(TokenType::Constant, "12".to_string(), 4, 12),
+            Token::new(TokenType::Semicolon, ";".to_string(), 4, 14),
+            Token::new(TokenType::CloseBrace, "}".to_string(), 5, 1),
+            Token::new(TokenType::EOF, String::new(), 5, 2),
+        ];
+
+        assert_eq!(actual_tokens, expected_tokens, "Token sequence mismatch");
+    }
+
+    #[test]
+    fn test_multi_line_comment() {
+        let filepath = Path::new("./inputs/multiLineComment.c");
+        let source_code = match read_file(filepath.to_str().unwrap()) {
+            Ok(content) => content,
+            Err(e) => {
+                panic!("Failed to read input file {:?}: {}", filepath, e);
+            }
+        };
+
+        let result = lexer(&source_code);
+        assert!(
+            result.is_ok(),
+            "Lexer failed on input file {:?}: {:?}",
+            filepath,
+            result.err()
+        );
+
+        let actual_tokens = result.unwrap();
+        assert!(!actual_tokens.is_empty());
+
+        let expected_tokens = vec![
+            Token::new(TokenType::KeywordInt, "int".to_string(), 1, 1),
+            Token::new(TokenType::Identifier, "main".to_string(), 1, 5),
+            Token::new(TokenType::OpenParen, "(".to_string(), 1, 9),
+            Token::new(TokenType::KeywordVoid, "void".to_string(), 1, 10),
+            Token::new(TokenType::CloseParen, ")".to_string(), 1, 14),
+            Token::new(TokenType::OpenBrace, "{".to_string(), 1, 16),
+            Token::new(TokenType::KeywordReturn, "return".to_string(), 6, 4),
+            Token::new(TokenType::Constant, "313".to_string(), 6, 11),
+            Token::new(TokenType::Semicolon, ";".to_string(), 6, 14),
+            Token::new(TokenType::CloseBrace, "}".to_string(), 7, 1),
+            Token::new(TokenType::EOF, String::new(), 7, 2),
+        ];
+
+        assert_eq!(actual_tokens, expected_tokens, "Token sequence mismatch");
+    }
 }

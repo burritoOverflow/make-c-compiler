@@ -1,3 +1,7 @@
+`Book`: [Writing a C Compiler](https://nostarch.com/writing-c-compiler)
+
+`Test suite`: [Github Source](https://github.com/nlsandler/writing-a-c-compiler-tests)
+
 # Initial Lexer Test
 
 Lexer usage:
