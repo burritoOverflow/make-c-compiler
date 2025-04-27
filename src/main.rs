@@ -128,6 +128,80 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
                     col += 1;
                 }
             }
+            '/' => {
+                let start_line = line; // Store starting position for potential errors
+                let start_col = col;
+                chars.next(); // Consume the first '/'
+                col += 1;
+
+                match chars.peek() {
+                    // Single-line comment `//`
+                    Some(&'/') => {
+                        chars.next(); // Consume the second '/'
+                        col += 1;
+                        // Consume until newline or EOF
+                        while let Some(&comment_char) = chars.peek() {
+                            if comment_char == '\n' {
+                                chars.next(); // Consume newline
+                                line += 1;
+                                col = 1;
+                                break; // Exit comment loop
+                            } else {
+                                chars.next(); // Consume comment char
+                                col += 1;
+                            }
+                        }
+                        continue; // Skip to next token
+                    }
+                    // Multi-line comment `/*`
+                    Some(&'*') => {
+                        chars.next(); // Consume the '*'
+                        col += 1;
+                        let comment_start_line = start_line; // For error reporting
+                        let comment_start_col = start_col;
+
+                        loop {
+                            match chars.next() {
+                                Some('*') => {
+                                    col += 1;
+                                    // Check if the next char is '/' to close the comment
+                                    if let Some(&'/') = chars.peek() {
+                                        chars.next(); // Consume the '/'
+                                        col += 1;
+                                        break; // End of multi-line comment
+                                    }
+                                    // If it was just a '*', continue consuming
+                                }
+                                Some('\n') => {
+                                    line += 1;
+                                    col = 1;
+                                }
+                                Some(_) => {
+                                    // Any other character inside the comment
+                                    col += 1;
+                                }
+                                None => {
+                                    // Reached EOF before finding '*/'
+                                    return Err(LexerError {
+                                        message: "Unterminated multi-line comment".to_string(),
+                                        line: comment_start_line, // Report error at comment start
+                                        col: comment_start_col,
+                                    });
+                                }
+                            }
+                        }
+                        continue; // Skip to next token
+                    }
+                    _ => {
+                        // It was just a single '/', which is an error in this grammar
+                        return Err(LexerError {
+                            message: "Unexpected character '/'".to_string(),
+                            line: start_line,
+                            col: start_col,
+                        });
+                    }
+                }
+            }
             // Valid symbols
             '(' => {
                 tokens.push(Token::new(TokenType::OpenParen, c.to_string(), line, col));
@@ -183,6 +257,7 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
                 let start_col = col;
                 let mut lexeme = String::new();
 
+                // Consume all consecutive digits
                 while let Some(&p) = chars.peek() {
                     if p.is_digit(10) {
                         lexeme.push(p);
@@ -192,6 +267,25 @@ fn lexer(source: &str) -> Result<Vec<Token>, LexerError> {
                         break;
                     }
                 }
+
+                // Check if there are characters after the digits (invlid identifier)
+                if let Some(&next_char) = chars.peek() {
+                    if next_char.is_alphabetic() || next_char == '_' {
+                        // Consume the invalid character to include it in the error context if needed,
+                        // though the error message focuses on the invalid sequence starting with the number.
+                        lexeme.push(next_char);
+                        chars.next();
+                        col += 1;
+
+                        return Err(LexerError {
+                            message: format!("Invalid numeric literal or identifier starting with digit: '{}'", lexeme),
+                            line,
+                            col, // Report the location of the error as the start of this invalid identifier
+                        });
+                    }
+                }
+
+                // Otherwise, it's a valid numerical constant.
                 tokens.push(Token::new(TokenType::Constant, lexeme, line, start_col));
             }
             // Unknown character results in an error
